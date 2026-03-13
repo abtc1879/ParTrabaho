@@ -121,3 +121,22 @@ export async function resendSignupConfirmation(email) {
   if (error) throw error;
   return data;
 }
+
+export async function updateAccountEmail(nextEmail) {
+  const normalizedEmail = String(nextEmail || "").trim().toLowerCase();
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    throw new Error("Enter a valid email address.");
+  }
+  const { data, error } = await supabase.auth.updateUser({ email: normalizedEmail });
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAccountPassword(nextPassword) {
+  if (!nextPassword || String(nextPassword).length < 6) {
+    throw new Error("Password must be at least 6 characters.");
+  }
+  const { data, error } = await supabase.auth.updateUser({ password: nextPassword });
+  if (error) throw error;
+  return data;
+}

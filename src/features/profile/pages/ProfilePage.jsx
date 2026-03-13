@@ -48,6 +48,9 @@ export function ProfilePage() {
           <Link className="btn btn-secondary" to="/my-jobs">
             My Jobs
           </Link>
+          <Link className="btn btn-secondary" to="/account-security">
+            Account Security
+          </Link>
           <Link className="btn btn-secondary" to="/account-support">
             Account Support
           </Link>

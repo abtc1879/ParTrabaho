@@ -25,6 +25,7 @@ import { RentalReviewsPage } from "../features/profile/pages/RentalReviewsPage";
 import { AccommodationReviewsPage } from "../features/profile/pages/AccommodationReviewsPage";
 import { FindPersonPage } from "../features/profile/pages/FindPersonPage";
 import { AccountSupportPage } from "../features/profile/pages/AccountSupportPage";
+import { AccountSecurityPage } from "../features/profile/pages/AccountSecurityPage";
 import { AdminModerationPage } from "../features/admin/pages/AdminModerationPage";
 
 function RequireAuth() {
@@ -80,6 +81,7 @@ export const router = createBrowserRouter(
           { path: "chat", element: <ChatListPage /> },
           { path: "chat/:conversationId", element: <ChatRoomPage /> },
           { path: "profile", element: <ProfilePage /> },
+          { path: "account-security", element: <AccountSecurityPage /> },
           { path: "account-support", element: <AccountSupportPage /> },
           { path: "freelancer-reviews", element: <FreelancerReviewsPage /> },
           { path: "client-reviews", element: <ClientReviewsPage /> },
