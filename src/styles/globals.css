@@ -410,7 +410,7 @@ a {
 .auth-login,
 .auth-signup {
   max-width: 664px;
-  width: min(664px, calc(100% - 11in));
+  width: min(664px, calc(100% - 28px));
   min-height: calc(100vh - 170px);
   justify-content: center;
   margin: 0 auto;
