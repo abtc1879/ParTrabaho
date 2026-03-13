@@ -49,7 +49,8 @@ function RequireAdmin() {
   return <Outlet />;
 }
 
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
   { path: "/reset-password", element: <ResetPasswordPage /> },
   {
     element: <PublicOnly />,
@@ -97,5 +98,7 @@ export const router = createBrowserRouter([
       }
     ]
   },
-  { path: "*", element: <Navigate to="/" replace /> }
-]);
+    { path: "*", element: <Navigate to="/" replace /> }
+  ],
+  { basename: "/ParTrabaho" }
+);
