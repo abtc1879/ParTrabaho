@@ -1,0 +1,1 @@
+import{j as e}from"./react-vendor-CCOfL_A2.js";function o({lines:r=3}){return e.jsx("div",{className:"card",children:Array.from({length:r}).map((a,s)=>e.jsx("div",{className:"skeleton-line"},s))})}export{o as L};

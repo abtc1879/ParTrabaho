@@ -1,0 +1,1 @@
+import{j as s}from"./react-vendor-CCOfL_A2.js";function a({title:t,description:e}){return s.jsxs("div",{className:"card empty-state",children:[s.jsx("h3",{children:t}),s.jsx("p",{className:"muted",children:e})]})}export{a as E};
