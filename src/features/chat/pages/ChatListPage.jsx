@@ -1,7 +1,7 @@
 ﻿import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteConversations, listConversations } from "../api";
+import { deleteConversations, getConversationById, listConversations, listMessages } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { EmptyState } from "../../../components/common/EmptyState";
 
@@ -52,6 +52,7 @@ export function ChatListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const selectAllRef = useRef(null);
+  const prefetchedIdsRef = useRef(new Set());
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [deleteError, setDeleteError] = useState("");
   const conversationsQuery = useQuery({
@@ -129,6 +130,24 @@ export function ChatListPage() {
     }
   }
 
+  function prefetchConversation(conversationId) {
+    if (!conversationId) return;
+    if (prefetchedIdsRef.current.has(conversationId)) {
+      import("./ChatRoomPage");
+      return;
+    }
+    prefetchedIdsRef.current.add(conversationId);
+    Promise.all([getConversationById(conversationId), listMessages(conversationId)])
+      .then(([conversation, messages]) => {
+        queryClient.setQueryData(["conversation", conversationId], conversation);
+        queryClient.setQueryData(["messages", conversationId], messages);
+      })
+      .catch(() => {
+        prefetchedIdsRef.current.delete(conversationId);
+      });
+    import("./ChatRoomPage");
+  }
+
   return (
     <section className="page chat-list-screen">
       <h2>Chat</h2>
@@ -173,6 +192,8 @@ export function ChatListPage() {
             key={conversation.id}
             role="link"
             tabIndex={0}
+            onMouseEnter={() => prefetchConversation(conversation.id)}
+            onFocus={() => prefetchConversation(conversation.id)}
             onClick={(event) => {
               if (event.target.closest("a,button,input,textarea,select,label")) return;
               navigate(`/chat/${conversation.id}`);

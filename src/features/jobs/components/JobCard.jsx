@@ -20,7 +20,7 @@ function readCompletion(value) {
   return value || null;
 }
 
-export function JobCard({ job, showDeleteCompleted = false, onDeleteCompleted, deleting = false }) {
+export function JobCard({ job, showDeleteCompleted = false, onDeleteCompleted, deleting = false, onPrefetch }) {
   const clientProfile = job.client_profile;
   const clientName = getClientName(clientProfile);
   const clientProfileLink = clientProfile?.id ? `/profiles/${clientProfile.id}` : "";
@@ -36,7 +36,13 @@ export function JobCard({ job, showDeleteCompleted = false, onDeleteCompleted, d
 
       <div className="job-poster">
         {clientProfileLink ? (
-          <Link className="job-poster-avatar-link" to={clientProfileLink} aria-label={`View ${clientName} profile`}>
+          <Link
+            className="job-poster-avatar-link"
+            to={clientProfileLink}
+            aria-label={`View ${clientName} profile`}
+            onMouseEnter={onPrefetch}
+            onFocus={onPrefetch}
+          >
             {clientProfile?.avatar_url ? (
               <img className="job-poster-avatar" src={clientProfile.avatar_url} alt={clientName} />
             ) : (
@@ -52,7 +58,7 @@ export function JobCard({ job, showDeleteCompleted = false, onDeleteCompleted, d
         <div className="job-poster-text">
           <p className="job-poster-label">Posted by</p>
           {clientProfileLink ? (
-            <Link className="job-poster-name" to={clientProfileLink}>
+            <Link className="job-poster-name" to={clientProfileLink} onMouseEnter={onPrefetch} onFocus={onPrefetch}>
               {clientName}
             </Link>
           ) : (
@@ -85,7 +91,7 @@ export function JobCard({ job, showDeleteCompleted = false, onDeleteCompleted, d
       </div>
 
       <div className="job-footer">
-        <Link className="btn btn-primary" to={`/jobs/${job.id}`}>
+        <Link className="btn btn-primary" to={`/jobs/${job.id}`} onMouseEnter={onPrefetch} onFocus={onPrefetch}>
           View Details
         </Link>
         {showDeleteCompleted ? (

@@ -103,6 +103,12 @@ export function AdminModerationPage() {
   const [logoError, setLogoError] = useState("");
   const [logoMessage, setLogoMessage] = useState("");
 
+  const canLoadAdmin = !!user?.id && isAdmin;
+  const needReportsData = canLoadAdmin && (activeTab === "overview" || activeTab === "reports");
+  const needRequestsData = canLoadAdmin && (activeTab === "overview" || activeTab === "requests");
+  const needAccountsData = canLoadAdmin && (activeTab === "overview" || activeTab === "accounts");
+  const needLoginAttemptSummary = canLoadAdmin && (activeTab === "requests" || activeTab === "accounts");
+
   useEffect(() => {
     return () => {
       if (logoPreview) {
@@ -113,43 +119,43 @@ export function AdminModerationPage() {
 
   const reportsQuery = useQuery({
     queryKey: ["admin-reports", user?.id],
-    enabled: !!user?.id && isAdmin,
+    enabled: needReportsData,
     queryFn: () => listAllReportsForAdmin()
   });
 
   const supportRequestsQuery = useQuery({
     queryKey: ["admin-support-requests", user?.id],
-    enabled: !!user?.id && isAdmin,
+    enabled: needRequestsData,
     queryFn: () => listSupportRequestsForAdmin()
   });
 
   const restrictedUsersQuery = useQuery({
     queryKey: ["admin-restricted-users", user?.id],
-    enabled: !!user?.id && isAdmin,
+    enabled: needAccountsData,
     queryFn: () => listRestrictedUsers()
   });
 
   const usersQuery = useQuery({
     queryKey: ["admin-users", user?.id],
-    enabled: !!user?.id && isAdmin,
+    enabled: needAccountsData,
     queryFn: () => listUsersForAdmin()
   });
 
   const loginRecoveryRequestsQuery = useQuery({
     queryKey: ["admin-login-recovery-requests", user?.id],
-    enabled: !!user?.id && isAdmin,
+    enabled: needRequestsData,
     queryFn: () => listLoginRecoveryRequestsForAdmin()
   });
 
   const loginAttemptSummaryQuery = useQuery({
     queryKey: ["admin-login-attempt-summary", user?.id],
-    enabled: !!user?.id && isAdmin,
+    enabled: needLoginAttemptSummary,
     queryFn: () => listLoginAttemptSummaryForAdmin()
   });
 
   const loginAttemptLogsQuery = useQuery({
     queryKey: ["admin-login-attempt-logs", user?.id, selectedAttemptEmail],
-    enabled: !!user?.id && isAdmin && !!selectedAttemptEmail,
+    enabled: needLoginAttemptSummary && !!selectedAttemptEmail,
     queryFn: () => listLoginAttemptLogsForAdmin({ attemptedEmail: selectedAttemptEmail, limit: 60 })
   });
 

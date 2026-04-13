@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { listJobs } from "../api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getJobById, listJobs } from "../api";
 import { JobCard } from "../components/JobCard";
 import { EmptyState } from "../../../components/common/EmptyState";
 import { LoadingSkeleton } from "../../../components/common/LoadingSkeleton";
 
 export function HomePage() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -25,6 +26,16 @@ export function HomePage() {
         onlyOpen: true
       })
   });
+
+  function prefetchJobDetails(jobId) {
+    if (!jobId) return;
+    queryClient.prefetchQuery({
+      queryKey: ["job", jobId],
+      queryFn: () => getJobById(jobId),
+      staleTime: 60 * 1000
+    });
+    import("./JobDetailsPage");
+  }
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   let visibleJobs = (jobsQuery.data || []).filter((job) => {
@@ -178,7 +189,7 @@ export function HomePage() {
 
       <div className="stack">
         {visibleJobs.map((job) => (
-          <JobCard key={job.id} job={job} />
+          <JobCard key={job.id} job={job} onPrefetch={() => prefetchJobDetails(job.id)} />
         ))}
       </div>
     </section>
