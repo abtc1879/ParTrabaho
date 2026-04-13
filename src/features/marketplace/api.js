@@ -1,12 +1,23 @@
 import { supabase } from "../../lib/supabaseClient";
 
-export async function listMarketplaceProducts() {
-  const { data, error } = await supabase
+export async function listMarketplaceProducts(pagination = {}) {
+  let query = supabase
     .from("marketplace_products")
     .select(
       "id, seller_id, name, category, specification, price_php, stock, sold_out, location, map_url, notes, photo_url, created_at, seller:seller_id(id, firstname, surname, avatar_url, rating_avg, rating_count, seller_rating_avg, seller_rating_count), photos:marketplace_product_photos(id, photo_url, created_at)"
     )
     .order("created_at", { ascending: false });
+
+  const page = Number(pagination.page || 1);
+  const pageSize = Number(pagination.pageSize || 0);
+  if (Number.isFinite(pageSize) && pageSize > 0) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const from = (safePage - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }

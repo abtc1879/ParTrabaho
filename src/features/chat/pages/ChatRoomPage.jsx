@@ -149,22 +149,6 @@ export function ChatRoomPage() {
   const rentalId = conversationQuery.data?.rental_id;
   const accommodationId = conversationQuery.data?.accommodation_id;
 
-  const completionQuery = useQuery({
-    queryKey: ["job-completion", jobId],
-    queryFn: () => getJobCompletion(jobId),
-    enabled: !!jobId
-  });
-
-  const myReviewsQuery = useQuery({
-    queryKey: ["my-job-reviews", jobId, user?.id],
-    queryFn: () =>
-      listMyJobReviews({
-        jobId,
-        reviewerId: user.id
-      }),
-    enabled: !!jobId && !!user?.id
-  });
-
   const conversation = conversationQuery.data;
   const job = readSingle(conversation?.job);
   const product = readSingle(conversation?.product);
@@ -233,16 +217,138 @@ export function ChatRoomPage() {
   const otherName = fullName(otherProfile) || otherRoleLabel;
   const otherProfilePath = otherProfile?.id ? `/profiles/${otherProfile.id}` : "";
 
-  const existingReportQuery = useQuery({
-    queryKey: ["existing-user-report", jobId, user?.id, otherProfile?.id],
-    queryFn: () =>
-      getMyReportAgainstUserForJob({
-        jobId,
-        reporterId: user.id,
-        reportedUserId: otherProfile.id
-      }),
-    enabled: !!jobId && !!user?.id && !!otherProfile?.id
+  const renterId = conversation?.freelancer_id;
+
+  const chatAuxQuery = useQuery({
+    queryKey: [
+      "chat-room-aux",
+      conversationId,
+      user?.id,
+      jobId,
+      productId,
+      rentalId,
+      accommodationId,
+      conversation?.client_id,
+      conversation?.freelancer_id,
+      otherProfile?.id,
+      amClient,
+      amBuyer,
+      amSeller,
+      amOwner,
+      amRenter
+    ],
+    enabled: !!conversationId && !!conversation && !!user?.id,
+    queryFn: async () => {
+      const [
+        completion,
+        myReviews,
+        existingReport,
+        marketplaceReceipt,
+        marketplaceOrder,
+        marketplaceReview,
+        rentalReservation,
+        accommodationReservation
+      ] = await Promise.all([
+        jobId ? getJobCompletion(jobId) : Promise.resolve(null),
+        jobId
+          ? listMyJobReviews({
+              jobId,
+              reviewerId: user.id
+            })
+          : Promise.resolve([]),
+        jobId && otherProfile?.id
+          ? getMyReportAgainstUserForJob({
+              jobId,
+              reporterId: user.id,
+              reportedUserId: otherProfile.id
+            })
+          : Promise.resolve(null),
+        productId && conversation?.freelancer_id && (amBuyer || amSeller)
+          ? getMarketplaceReceipt({
+              productId,
+              buyerId: conversation.freelancer_id
+            })
+          : Promise.resolve(null),
+        productId && amBuyer
+          ? getMarketplaceOrder({
+              productId,
+              buyerId: user.id
+            })
+          : Promise.resolve(null),
+        productId && amBuyer
+          ? getMyMarketplaceReview({
+              productId,
+              buyerId: user.id
+            })
+          : Promise.resolve(null),
+        rentalId && renterId && (amOwner || amRenter)
+          ? getRentalReservation({
+              rentalId,
+              renterId
+            })
+          : Promise.resolve(null),
+        accommodationId && renterId && isAccommodation
+          ? getAccommodationReservation({
+              accommodationId,
+              guestId: renterId
+            })
+          : Promise.resolve(null)
+      ]);
+
+      const [rentalReview, accommodationReview] = await Promise.all([
+        rentalReservation?.id && amRenter
+          ? getMyRentalReview({
+              reservationId: rentalReservation.id,
+              reviewerId: user.id
+            })
+          : Promise.resolve(null),
+        accommodation?.id && !amClient && accommodationReservation?.status === "completed"
+          ? getMyAccommodationReview({
+              accommodationId: accommodation.id,
+              reviewerId: user.id
+            })
+          : Promise.resolve(null)
+      ]);
+
+      return {
+        completion,
+        myReviews,
+        existingReport,
+        marketplaceReceipt,
+        marketplaceOrder,
+        marketplaceReview,
+        rentalReservation,
+        accommodationReservation,
+        rentalReview,
+        accommodationReview
+      };
+    }
   });
+
+  const completionQuery = {
+    data: chatAuxQuery.data?.completion,
+    isError: chatAuxQuery.isError,
+    error: chatAuxQuery.error
+  };
+  const myReviewsQuery = { data: chatAuxQuery.data?.myReviews || [] };
+  const existingReportQuery = {
+    data: chatAuxQuery.data?.existingReport,
+    isLoading: chatAuxQuery.isLoading,
+    isError: chatAuxQuery.isError,
+    error: chatAuxQuery.error
+  };
+  const marketplaceReceiptQuery = { data: chatAuxQuery.data?.marketplaceReceipt };
+  const marketplaceOrderQuery = { data: chatAuxQuery.data?.marketplaceOrder };
+  const marketplaceReviewQuery = { data: chatAuxQuery.data?.marketplaceReview };
+  const rentalReservationQuery = {
+    data: chatAuxQuery.data?.rentalReservation,
+    isLoading: chatAuxQuery.isLoading && !!rentalId && !!renterId && (amOwner || amRenter),
+    isError: chatAuxQuery.isError,
+    error: chatAuxQuery.error
+  };
+  const accommodationReservationQuery = { data: chatAuxQuery.data?.accommodationReservation };
+  const rentalReviewQuery = { data: chatAuxQuery.data?.rentalReview };
+  const accommodationReviewQuery = { data: chatAuxQuery.data?.accommodationReview };
 
   const myMarkedDone = useMemo(() => {
     if (!completionQuery.data) return false;
@@ -265,68 +371,6 @@ export function ChatRoomPage() {
   const reportPendingAdminApproval = existingReport?.status === "submitted";
 
   const existingReview = (myReviewsQuery.data || []).find((review) => review.reviewee_id === otherProfile?.id);
-
-  const marketplaceReceiptQuery = useQuery({
-    queryKey: ["marketplace-receipt", productId, conversation?.freelancer_id],
-    queryFn: () =>
-      getMarketplaceReceipt({
-        productId,
-        buyerId: conversation.freelancer_id
-      }),
-    enabled: !!productId && !!conversation?.freelancer_id && (amBuyer || amSeller)
-  });
-
-  const marketplaceOrderQuery = useQuery({
-    queryKey: ["marketplace-order", productId, user?.id],
-    queryFn: () =>
-      getMarketplaceOrder({
-        productId,
-        buyerId: user.id
-      }),
-    enabled: !!productId && !!user?.id && amBuyer
-  });
-
-  const marketplaceReviewQuery = useQuery({
-    queryKey: ["marketplace-review", productId, user?.id],
-    queryFn: () =>
-      getMyMarketplaceReview({
-        productId,
-        buyerId: user.id
-      }),
-    enabled: !!productId && !!user?.id && amBuyer
-  });
-
-  const renterId = conversation?.freelancer_id;
-
-  const rentalReservationQuery = useQuery({
-    queryKey: ["rental-reservation", rentalId, renterId],
-    queryFn: () =>
-      getRentalReservation({
-        rentalId,
-        renterId
-      }),
-    enabled: !!rentalId && !!renterId && (amOwner || amRenter)
-  });
-
-  const accommodationReservationQuery = useQuery({
-    queryKey: ["accommodation-reservation", accommodationId, renterId],
-    queryFn: () =>
-      getAccommodationReservation({
-        accommodationId,
-        guestId: renterId
-      }),
-    enabled: !!accommodationId && !!renterId && isAccommodation
-  });
-
-  const rentalReviewQuery = useQuery({
-    queryKey: ["rental-review", rentalReservationQuery.data?.id, user?.id],
-    queryFn: () =>
-      getMyRentalReview({
-        reservationId: rentalReservationQuery.data?.id,
-        reviewerId: user.id
-      }),
-    enabled: !!rentalReservationQuery.data?.id && !!user?.id && amRenter
-  });
 
   const rentalReservation = rentalReservationQuery.data;
   const reservationStatus = rentalReservation?.status || "";
@@ -351,16 +395,6 @@ export function ChatRoomPage() {
     (canCancelAccommodationReservation ||
       canCheckoutAccommodationReservation ||
       accommodationReservationStatus === "pending");
-  const accommodationReviewQuery = useQuery({
-    queryKey: ["accommodation-review", accommodation?.id, user?.id],
-    queryFn: () =>
-      getMyAccommodationReview({
-        accommodationId: accommodation?.id,
-        reviewerId: user.id
-      }),
-    enabled: !!accommodation?.id && !!user?.id && !amClient && accommodationReservationStatus === "completed"
-  });
-
   const canRequestAccommodationReservation =
     !accommodationReservation ||
     accommodationReservationStatus === "cancelled" ||

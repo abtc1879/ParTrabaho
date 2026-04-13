@@ -1,13 +1,24 @@
 import { supabase } from "../../lib/supabaseClient";
 
-export async function listConversations(userId) {
-  const { data, error } = await supabase
+export async function listConversations(userId, pagination = {}) {
+  let query = supabase
     .from("conversations")
     .select(
       "id, job_id, product_id, rental_id, accommodation_id, client_id, freelancer_id, created_at, job:job_id(id, title, status), product:product_id(id, name, category, price_php, stock, sold_out, location, map_url, photo_url), rental:rental_id(id, title, category, price_php, location, map_url, photo_url, is_reserved, is_rented), accommodation:accommodation_id(id, title, category, price_php, location, map_url, photo_url), client_profile:client_id(id, firstname, surname, avatar_url, rating_avg, rating_count, client_rating_avg, client_rating_count, freelancer_rating_avg, freelancer_rating_count), freelancer_profile:freelancer_id(id, firstname, surname, avatar_url, rating_avg, rating_count, client_rating_avg, client_rating_count, freelancer_rating_avg, freelancer_rating_count)"
     )
     .or(`client_id.eq.${userId},freelancer_id.eq.${userId}`)
     .order("created_at", { ascending: false });
+
+  const page = Number(pagination.page || 1);
+  const pageSize = Number(pagination.pageSize || 0);
+  if (Number.isFinite(pageSize) && pageSize > 0) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const from = (safePage - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data;
 }
@@ -24,14 +35,25 @@ export async function getConversationById(conversationId) {
   return data;
 }
 
-export async function listMessages(conversationId) {
-  const { data, error } = await supabase
+export async function listMessages(conversationId, pagination = {}) {
+  let query = supabase
     .from("messages")
     .select("*, sender:sender_id(id, firstname, surname, avatar_url)")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false });
+
+  const page = Number(pagination.page || 1);
+  const pageSize = Number(pagination.pageSize || 120);
+  if (Number.isFinite(pageSize) && pageSize > 0) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const from = (safePage - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
-  return data;
+  return (data || []).slice().reverse();
 }
 
 export async function sendMessage({ conversationId, senderId, body }) {

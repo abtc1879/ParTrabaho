@@ -24,7 +24,7 @@ export function HomePage() {
         category: filterCategory !== "all" ? filterCategory : "",
         location: filterLocation !== "all" ? filterLocation : "",
         onlyOpen: true
-      })
+      }, { page: 1, pageSize: 48 })
   });
 
   function prefetchJobDetails(jobId) {

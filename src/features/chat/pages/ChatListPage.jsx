@@ -57,7 +57,7 @@ export function ChatListPage() {
   const [deleteError, setDeleteError] = useState("");
   const conversationsQuery = useQuery({
     queryKey: ["conversations", user?.id],
-    queryFn: () => listConversations(user.id),
+    queryFn: () => listConversations(user.id, { page: 1, pageSize: 80 }),
     enabled: !!user?.id
   });
 

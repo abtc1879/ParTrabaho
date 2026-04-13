@@ -142,7 +142,7 @@ export function MarketplacePage() {
 
   const productsQuery = useQuery({
     queryKey: ["marketplace-products"],
-    queryFn: () => listMarketplaceProducts()
+    queryFn: () => listMarketplaceProducts({ page: 1, pageSize: 80 })
   });
 
   const createMutation = useMutation({

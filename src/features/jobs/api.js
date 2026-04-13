@@ -1,6 +1,6 @@
 import { supabase } from "../../lib/supabaseClient";
 
-export async function listJobs(filters = {}) {
+export async function listJobs(filters = {}, pagination = {}) {
   let query = supabase
     .from("jobs")
     .select(
@@ -19,6 +19,15 @@ export async function listJobs(filters = {}) {
   }
   if (filters.onlyOpen) {
     query = query.eq("status", "open");
+  }
+
+  const page = Number(pagination.page || 1);
+  const pageSize = Number(pagination.pageSize || 0);
+  if (Number.isFinite(pageSize) && pageSize > 0) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const from = (safePage - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
   }
 
   const { data, error } = await query;

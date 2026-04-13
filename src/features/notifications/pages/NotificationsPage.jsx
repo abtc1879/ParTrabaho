@@ -28,7 +28,7 @@ export function NotificationsPage() {
 
   const notificationsQuery = useQuery({
     queryKey: ["notifications", user?.id],
-    queryFn: () => listNotifications(user.id),
+    queryFn: () => listNotifications(user.id, { page: 1, pageSize: 120 }),
     enabled: !!user?.id
   });
 

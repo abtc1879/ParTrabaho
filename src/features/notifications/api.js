@@ -4,12 +4,23 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || "");
 }
 
-export async function listNotifications(userId) {
-  const { data: notifications, error } = await supabase
+export async function listNotifications(userId, pagination = {}) {
+  let query = supabase
     .from("notifications")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
+
+  const page = Number(pagination.page || 1);
+  const pageSize = Number(pagination.pageSize || 0);
+  if (Number.isFinite(pageSize) && pageSize > 0) {
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const from = (safePage - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
+
+  const { data: notifications, error } = await query;
   if (error) throw error;
   if (!notifications?.length) return [];
 
