@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../auth/AuthContext";
 import { openMarketplaceConversation } from "../../chat/api";
 import { getProfileById } from "../../profile/api";
@@ -16,6 +16,8 @@ import {
   placeMarketplaceOrder
 } from "../api";
 import { EmptyState } from "../../../components/common/EmptyState";
+
+const MARKETPLACE_PAGE_SIZE = 24;
 
 function readSingle(value) {
   if (Array.isArray(value)) return value[0] || null;
@@ -140,10 +142,20 @@ export function MarketplacePage() {
     enabled: !!user?.id
   });
 
-  const productsQuery = useQuery({
-    queryKey: ["marketplace-products"],
-    queryFn: () => listMarketplaceProducts({ page: 1, pageSize: 80 })
+  const productsQuery = useInfiniteQuery({
+    queryKey: ["marketplace-products", "infinite"],
+    queryFn: ({ pageParam = 1 }) => listMarketplaceProducts({ page: pageParam, pageSize: MARKETPLACE_PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!Array.isArray(lastPage) || lastPage.length < MARKETPLACE_PAGE_SIZE) return undefined;
+      return allPages.length + 1;
+    }
   });
+
+  const loadedProducts = useMemo(
+    () => productsQuery.data?.pages?.flatMap((page) => page || []) || [],
+    [productsQuery.data]
+  );
 
   const createMutation = useMutation({
     mutationFn: ({ sellerId, payload }) => createMarketplaceProduct({ sellerId, ...payload }),
@@ -175,19 +187,19 @@ export function MarketplacePage() {
   });
 
   const categoryOptions = useMemo(() => {
-    const items = productsQuery.data || [];
+    const items = loadedProducts;
     const unique = new Set(items.map((item) => (item.category || "").trim()).filter(Boolean));
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [productsQuery.data]);
+  }, [loadedProducts]);
 
   const locationOptions = useMemo(() => {
-    const items = productsQuery.data || [];
+    const items = loadedProducts;
     const unique = new Set(items.map((item) => (item.location || "").trim()).filter(Boolean));
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [productsQuery.data]);
+  }, [loadedProducts]);
 
   const visibleProducts = useMemo(() => {
-    const items = productsQuery.data || [];
+    const items = loadedProducts;
     const activeSearch = showMyListings ? manageSearch : searchTerm;
     const activeCategory = showMyListings ? manageCategory : filterCategory;
     const activeLocation = showMyListings ? "all" : filterLocation;
@@ -267,7 +279,7 @@ export function MarketplacePage() {
     }
     return filtered;
   }, [
-    productsQuery.data,
+    loadedProducts,
     searchTerm,
     filterCategory,
     filterLocation,
@@ -373,21 +385,21 @@ export function MarketplacePage() {
 
   useEffect(() => {
     if (!confirmingOrderId) return;
-    const items = productsQuery.data || [];
+    const items = loadedProducts;
     const current = items.find((product) => product.id === confirmingOrderId);
     if (!current || current.sold_out || current.stock === 0) {
       setConfirmingOrderId("");
     }
-  }, [confirmingOrderId, productsQuery.data]);
+  }, [confirmingOrderId, loadedProducts]);
 
   useEffect(() => {
     if (!confirmingDeleteId) return;
-    const items = productsQuery.data || [];
+    const items = loadedProducts;
     const exists = items.some((product) => product.id === confirmingDeleteId);
     if (!exists) {
       setConfirmingDeleteId("");
     }
-  }, [confirmingDeleteId, productsQuery.data]);
+  }, [confirmingDeleteId, loadedProducts]);
 
   useEffect(() => {
     if (!showPostForm || locationTouched) return;
@@ -1103,11 +1115,11 @@ export function MarketplacePage() {
         </div>
       ) : null}
 
-      {productsQuery.isError ? <p className="feedback error">{productsQuery.error.message}</p> : null}
-      {!productsQuery.isLoading && visibleProducts.length === 0 && (productsQuery.data?.length || 0) === 0 ? (
+      {productsQuery.isError ? <p className="feedback error">{productsQuery.error?.message || "Unable to load products."}</p> : null}
+      {!productsQuery.isLoading && visibleProducts.length === 0 && loadedProducts.length === 0 ? (
         <EmptyState title="No products yet" description="Be the first to list an item for sale." />
       ) : null}
-      {!productsQuery.isLoading && visibleProducts.length === 0 && (productsQuery.data?.length || 0) > 0 ? (
+      {!productsQuery.isLoading && visibleProducts.length === 0 && loadedProducts.length > 0 ? (
         <EmptyState title="No matches found" description="Try a different keyword or clear the filters." />
       ) : null}
 
@@ -1745,6 +1757,22 @@ export function MarketplacePage() {
           );
         })}
       </div>
+      {loadedProducts.length > 0 ? (
+        <div className="list-load-more">
+          {productsQuery.hasNextPage ? (
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => productsQuery.fetchNextPage()}
+              disabled={productsQuery.isFetchingNextPage}
+            >
+              {productsQuery.isFetchingNextPage ? "Loading older products..." : "Load More"}
+            </button>
+          ) : (
+            <p className="muted">No older products left.</p>
+          )}
+        </div>
+      ) : null}
       {lightboxPhotos.length ? (
         <div className="photo-lightbox" role="dialog" aria-modal="true" onClick={closeLightbox}>
           <button className="photo-lightbox-close" type="button" onClick={closeLightbox}>

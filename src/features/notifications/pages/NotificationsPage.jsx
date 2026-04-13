@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   deleteNotifications,
@@ -18,6 +18,8 @@ import { EmptyState } from "../../../components/common/EmptyState";
 import { acceptApplicant, declineApplicant } from "../../applications/api";
 import { openAccommodationConversation, openMarketplaceConversation, openRentalConversation } from "../../chat/api";
 
+const NOTIFICATIONS_PAGE_SIZE = 40;
+
 export function NotificationsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -26,21 +28,31 @@ export function NotificationsPage() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [deleteError, setDeleteError] = useState("");
 
-  const notificationsQuery = useQuery({
-    queryKey: ["notifications", user?.id],
-    queryFn: () => listNotifications(user.id, { page: 1, pageSize: 120 }),
+  const notificationsQuery = useInfiniteQuery({
+    queryKey: ["notifications", user?.id, "infinite"],
+    queryFn: ({ pageParam = 1 }) => listNotifications(user.id, { page: pageParam, pageSize: NOTIFICATIONS_PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!Array.isArray(lastPage) || lastPage.length < NOTIFICATIONS_PAGE_SIZE) return undefined;
+      return allPages.length + 1;
+    },
     enabled: !!user?.id
   });
 
+  const loadedNotifications = useMemo(
+    () => notificationsQuery.data?.pages?.flatMap((page) => page || []) || [],
+    [notificationsQuery.data]
+  );
+
   const sortedNotifications = useMemo(() => {
-    const items = notificationsQuery.data || [];
+    const items = loadedNotifications;
     return [...items].sort((a, b) => {
       if (a.is_read === b.is_read) {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
       return a.is_read ? 1 : -1;
     });
-  }, [notificationsQuery.data]);
+  }, [loadedNotifications]);
 
   const allNotificationIds = useMemo(() => sortedNotifications.map((item) => item.id), [sortedNotifications]);
   const allSelected = allNotificationIds.length > 0 && selectedIds.size === allNotificationIds.length;
@@ -261,7 +273,7 @@ export function NotificationsPage() {
         </div>
       ) : null}
       {deleteError ? <p className="feedback error">{deleteError}</p> : null}
-      {notificationsQuery.data?.length === 0 ? (
+      {!notificationsQuery.isLoading && sortedNotifications.length === 0 ? (
         <EmptyState title="No notifications yet" description="Updates for applications, matches, and acceptance appear here." />
       ) : null}
       <div className="stack">
@@ -278,6 +290,22 @@ export function NotificationsPage() {
           />
         ))}
       </div>
+      {sortedNotifications.length > 0 ? (
+        <div className="list-load-more">
+          {notificationsQuery.hasNextPage ? (
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => notificationsQuery.fetchNextPage()}
+              disabled={notificationsQuery.isFetchingNextPage}
+            >
+              {notificationsQuery.isFetchingNextPage ? "Loading older notifications..." : "Load More"}
+            </button>
+          ) : (
+            <p className="muted">No older notifications left.</p>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }

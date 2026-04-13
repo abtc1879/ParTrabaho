@@ -1,6 +1,6 @@
 ﻿import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteConversations, getConversationById, listConversations, listMessages } from "../api";
 import { useAuth } from "../../auth/AuthContext";
 import { EmptyState } from "../../../components/common/EmptyState";
@@ -47,6 +47,8 @@ function getGenericRating(profile) {
   return "No ratings yet";
 }
 
+const CHAT_LIST_PAGE_SIZE = 30;
+
 export function ChatListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -55,13 +57,21 @@ export function ChatListPage() {
   const prefetchedIdsRef = useRef(new Set());
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [deleteError, setDeleteError] = useState("");
-  const conversationsQuery = useQuery({
-    queryKey: ["conversations", user?.id],
-    queryFn: () => listConversations(user.id, { page: 1, pageSize: 80 }),
+  const conversationsQuery = useInfiniteQuery({
+    queryKey: ["conversations", user?.id, "infinite"],
+    queryFn: ({ pageParam = 1 }) => listConversations(user.id, { page: pageParam, pageSize: CHAT_LIST_PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!Array.isArray(lastPage) || lastPage.length < CHAT_LIST_PAGE_SIZE) return undefined;
+      return allPages.length + 1;
+    },
     enabled: !!user?.id
   });
 
-  const conversations = conversationsQuery.data || [];
+  const conversations = useMemo(
+    () => conversationsQuery.data?.pages?.flatMap((page) => page || []) || [],
+    [conversationsQuery.data]
+  );
   const conversationIds = useMemo(() => conversations.map((item) => item.id), [conversations]);
   const allSelected = conversationIds.length > 0 && selectedIds.size === conversationIds.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
@@ -182,7 +192,7 @@ export function ChatListPage() {
         </div>
       ) : null}
       {deleteError ? <p className="feedback error">{deleteError}</p> : null}
-      {conversationsQuery.data?.length === 0 ? (
+      {!conversationsQuery.isLoading && conversations.length === 0 ? (
         <EmptyState title="No chats yet" description="Chat opens after a job application is accepted or a marketplace inquiry starts." />
       ) : null}
       <div className="stack">
@@ -320,6 +330,22 @@ export function ChatListPage() {
           </article>
         ))}
       </div>
+      {conversations.length > 0 ? (
+        <div className="list-load-more">
+          {conversationsQuery.hasNextPage ? (
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => conversationsQuery.fetchNextPage()}
+              disabled={conversationsQuery.isFetchingNextPage}
+            >
+              {conversationsQuery.isFetchingNextPage ? "Loading older chats..." : "Load More"}
+            </button>
+          ) : (
+            <p className="muted">No older chats left.</p>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }
